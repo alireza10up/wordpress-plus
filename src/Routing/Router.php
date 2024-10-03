@@ -9,18 +9,18 @@ class Router
     protected static array $post_types = [];
 
     /**
-     * get post type name and controller it auto handle post type handlers
+     * Handle post type and associate it with a controller.
      *
-     * @param $postTypeName
-     * @param $controller
+     * @param string $postTypeName
+     * @param string $controller
      * @return void
      * @throws HandlerNotExistException
      */
-    public static function handlePostTypeWithController($postTypeName, $controller): void
+    public static function handlePostTypeWithController(string $postTypeName, string $controller): void
     {
         self::$post_types[$postTypeName] = $controller;
 
-        # register post type
+        // TODO Register the custom post type without showing in the default menu
         add_action('init', function() use ($postTypeName) {
             $labels = [
                 'name' => ucfirst($postTypeName) . 's',
@@ -39,49 +39,76 @@ class Router
                 'public' => true,
                 'has_archive' => true,
                 'supports' => ['title', 'editor', 'custom-fields'],
-                'show_in_menu' => true,
+                'show_ui' => true,           // Show the UI but hide from default menus
+                'show_in_menu' => false,     // Hide default menu
             ];
 
             register_post_type($postTypeName, $postTypeArgs);
         });
 
-        # register menus
+        // TODO Register custom admin menu items
         add_action('admin_menu', function() use ($postTypeName, $controller) {
-            add_submenu_page(
-                "edit.php?post_type=$postTypeName",
-                "Manage $postTypeName",
-                "Manage $postTypeName",
+            // TODO List page for the custom post type
+            add_menu_page(
+                ucfirst($postTypeName) . 's',
+                ucfirst($postTypeName) . 's',
                 'manage_options',
                 "{$postTypeName}_list",
                 function() use ($controller) {
                     self::dispatch('index', $controller);
-                }
+                },
+                'dashicons-admin-post', // TODO Custom icon for the menu
+                20
             );
+
+            // Add new item
             add_submenu_page(
-                null,
-                "Add $postTypeName",
-                "Add $postTypeName",
+                "{$postTypeName}_list",
+                "Add New " . ucfirst($postTypeName),
+                "Add New",
                 'manage_options',
                 "{$postTypeName}_create",
                 function() use ($controller) {
                     self::dispatch('create', $controller);
                 }
             );
+
+            // Edit item
             add_submenu_page(
                 null,
-                "Edit $postTypeName",
-                "Edit $postTypeName",
+                "Edit " . ucfirst($postTypeName),
+                "Edit",
                 'manage_options',
                 "{$postTypeName}_edit",
                 function() use ($controller) {
                     self::dispatch('edit', $controller);
                 }
             );
+
+            // Delete item
+            add_submenu_page(
+                null,
+                "Delete " . ucfirst($postTypeName),
+                "Delete",
+                'manage_options',
+                "{$postTypeName}_delete",
+                function() use ($controller) {
+                    self::dispatch('delete', $controller);
+                }
+            );
         });
 
-        # handle actions
+        // Handle saving and deleting actions
         add_action('admin_post_save_' . $postTypeName, function() use ($controller) {
-            self::dispatch('store', $controller);
+            $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
+
+            if ($post_id) {
+                // If post ID exists, we're updating an existing post
+                self::dispatch('update', $controller);
+            } else {
+                // Otherwise, we're creating a new post
+                self::dispatch('store', $controller);
+            }
         });
 
         add_action('admin_post_delete_' . $postTypeName, function() use ($controller) {
@@ -89,7 +116,15 @@ class Router
         });
     }
 
-    public static function dispatch($action, $controller): void
+    /**
+     * Dispatch action to the appropriate controller method.
+     *
+     * @param string $action
+     * @param string $controller
+     * @return void
+     * @throws HandlerNotExistException
+     */
+    public static function dispatch(string $action, string $controller): void
     {
         $controllerInstance = new $controller();
         if (method_exists($controllerInstance, $action)) {
