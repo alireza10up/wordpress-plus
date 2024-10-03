@@ -1,7 +1,3 @@
-### **README for WordPress Plus Framework**
-
----
-
 # **WordPress Plus Framework**
 
 A Laravel-inspired micro-framework for developing WordPress plugins, providing a structured MVC approach with routing, custom post types, and ORM integration. This framework simplifies WordPress plugin development while adhering to modern PHP standards.
