@@ -6,7 +6,7 @@ use Alireza10up\WordpressPlus\Routing\Exceptions\HandlerNotExistException;
 
 class Router
 {
-    protected static $post_types = [];
+    protected static array $post_types = [];
 
     /**
      * get post type name and controller it auto handle post type handlers
@@ -20,6 +20,7 @@ class Router
     {
         self::$post_types[$postTypeName] = $controller;
 
+        # register post type
         add_action('init', function() use ($postTypeName) {
             $labels = [
                 'name' => ucfirst($postTypeName) . 's',
@@ -33,7 +34,7 @@ class Router
                 'all_items' => 'All ' . ucfirst($postTypeName) . 's',
             ];
 
-            $post_type_args = [
+            $postTypeArgs = [
                 'labels' => $labels,
                 'public' => true,
                 'has_archive' => true,
@@ -41,9 +42,10 @@ class Router
                 'show_in_menu' => true,
             ];
 
-            register_post_type($postTypeName, $post_type_args);
+            register_post_type($postTypeName, $postTypeArgs);
         });
 
+        # register menus
         add_action('admin_menu', function() use ($postTypeName, $controller) {
             add_submenu_page(
                 "edit.php?post_type=$postTypeName",
@@ -77,6 +79,7 @@ class Router
             );
         });
 
+        # handle actions
         add_action('admin_post_save_' . $postTypeName, function() use ($controller) {
             self::dispatch('store', $controller);
         });
