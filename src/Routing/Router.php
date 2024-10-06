@@ -96,18 +96,6 @@ class Router
                     self::dispatch('edit', $controller);
                 }
             );
-
-            // Delete item
-            add_submenu_page(
-                null,
-                "Delete " . ucfirst($entitieName),
-                "Delete",
-                'manage_options',
-                "{$entitieName}_delete",
-                function() use ($controller) {
-                    self::dispatch('delete', $controller);
-                }
-            );
         });
     }
 
@@ -210,6 +198,16 @@ class Router
                 exit;
             }
         });
+
+        // Generate hash of current routes
+        $currentRoutesHash = md5(json_encode(self::$routes));
+        $savedRoutesHash = get_option('wordpress_plus_routes_hash', '');
+
+        // Compare the hashes to determine if routes have changed
+        if ($currentRoutesHash !== $savedRoutesHash) {
+            flush_rewrite_rules(false);
+            update_option('wordpress_plus_routes_hash', $currentRoutesHash);
+        }
     }
 
     /**
