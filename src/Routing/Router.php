@@ -29,7 +29,7 @@ class Router
 
     /**
      * Add crud for resource in admin wordpress
-     * 
+     *
      * @param string $resourceName
      * @param string $controller
      * @return void
@@ -41,6 +41,13 @@ class Router
         self::registerCustomMenu($resourceName, $controller);
 
         self::registerHookAdminForActions($resourceName, $controller);
+    }
+
+    public static function get(string $route, string $controller, string $method)
+    {
+        self::$routes['get'][$route] = [$controller, $method];
+
+        self::registerRewriteRule($route);
     }
 
     /**
@@ -106,7 +113,7 @@ class Router
 
     /**
      * Register the custom post type without showing in the default menu
-     * 
+     *
      * @param string $postTypeName
      */
     public static function registerCustomPostType(string $postTypeName): void {
@@ -138,7 +145,7 @@ class Router
 
     /**
      * Handle saving and deleting actions
-     * 
+     *
      * @param string $entitieName
      * @param string $controller
      * @return void
@@ -154,7 +161,7 @@ class Router
         });
 
         add_action('admin_post_update_' . $entitieName, function() use ($controller) {
-            self::dispatch('update',$controller); 
+            self::dispatch('update',$controller);
         });
     }  
 
@@ -174,5 +181,46 @@ class Router
         } else {
             throw new HandlerNotExistException("Method $action not found in controller!");
         }
+    }
+
+    /**
+     * Register rewrite rules for custom routes.
+     *
+     * @param string $route
+     * @return void
+     */
+    private static function registerRewriteRule(string $route): void
+    {
+        add_action('init', function() use ($route) {
+            $regex = self::convertRouteToRegex($route);
+            $query = 'index.php?wordpress_plus_route=' . urlencode($route);
+            add_rewrite_rule($regex, $query, 'top');
+        });
+
+        add_filter('query_vars', function($vars) {
+            $vars[] = 'wordpress_plus_route';
+            return $vars;
+        });
+
+        add_action('template_redirect', function() use ($route) {
+            $current_route = get_query_var('wordpress_plus_route');
+            if ($current_route && $current_route === urlencode($route)) {
+                list($controller, $method) = self::$routes['get'][$route];
+                self::dispatch($method, $controller);
+                exit;
+            }
+        });
+    }
+
+    /**
+     * Convert route to regex pattern.
+     *
+     * @param string $route
+     * @return string
+     */
+    private static function convertRouteToRegex(string $route): string
+    {
+        $pattern = preg_replace('/\{[a-zA-Z0-9_]+\}/', '([^/]+)', $route);
+        return '^' . $pattern . '/?$';
     }
 }
