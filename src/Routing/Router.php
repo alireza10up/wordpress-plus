@@ -28,6 +28,22 @@ class Router
     }
 
     /**
+     * Add crud for resource in admin wordpress
+     * 
+     * @param string $resourceName
+     * @param string $controller
+     * @return void
+     */
+    public static function resourceAdmin(string $resourceName, string $controller): void
+    {
+        self::$routes['resourceAdmin'][$resourceName] = $controller;
+
+        self::registerCustomMenu($resourceName, $controller);
+
+        self::registerHookAdminForActions($resourceName, $controller);
+    }
+
+    /**
      * Register custom menu
      *  
      * @param string $entitieName
