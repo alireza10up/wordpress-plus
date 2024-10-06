@@ -89,7 +89,7 @@ class Router
     }
 
     /**
-     *  Register the custom post type without showing in the default menu
+     * Register the custom post type without showing in the default menu
      * 
      * @param string $postTypeName
      */
@@ -120,9 +120,15 @@ class Router
         });
     }
 
+    /**
+     * Handle saving and deleting actions
+     * 
+     * @param string $entitieName
+     * @param string $controller
+     * @return void
+     */
     public static function registerHookAdminForActions(string $entitieName, string $controller)
     {
-        // Handle saving and deleting actions
         add_action('admin_post_save_' . $entitieName, function() use ($controller) {          
             self::dispatch('store', $controller);
         });
@@ -134,7 +140,8 @@ class Router
         add_action('admin_post_update_' . $entitieName, function() use ($controller) {
             self::dispatch('update',$controller); 
         });
-    }   
+    }  
+
     /**
      * Dispatch action to the appropriate controller method.
      *
