@@ -6,7 +6,7 @@ use Alireza10up\WordpressPlus\Routing\Exceptions\HandlerNotExistException;
 
 class Router
 {
-    protected static array $post_types = [];
+    protected static array $routes = [];
 
     /**
      * Handle post type and associate it with a controller.
@@ -16,11 +16,84 @@ class Router
      * @return void
      * @throws HandlerNotExistException
      */
-    public static function handlePostTypeWithController(string $postTypeName, string $controller): void
+    public static function postType(string $postTypeName, string $controller): void
     {
-        self::$post_types[$postTypeName] = $controller;
+        self::$routes['postType'][$postTypeName] = $controller;
 
-        // TODO Register the custom post type without showing in the default menu
+        self::registerCustomPostType($postTypeName);
+
+        self::registerCustomMenu($postTypeName , $controller);
+
+        self::registerHookAdminForActions($postTypeName, $controller);
+    }
+
+    /**
+     * Register custom menu
+     *  
+     * @param string $entitieName
+     * @param string $controller
+     * @return void
+     */
+    public static function registerCustomMenu(string $entitieName, string $controller): void
+    {
+        add_action('admin_menu', function() use ($entitieName, $controller) {
+            // List page for the custom post type
+            add_menu_page(
+                ucfirst($entitieName) . 's',
+                ucfirst($entitieName) . 's',
+                'manage_options',
+                "{$entitieName}_list",
+                function() use ($controller) {
+                    self::dispatch('index', $controller);
+                },
+                'dashicons-admin-post', // TODO Custom icon for the menu we have changable
+                20
+            );
+
+            // Add new item
+            add_submenu_page(
+                "{$entitieName}_list",
+                "Add New " . ucfirst($entitieName),
+                "Add New",
+                'manage_options',
+                "{$entitieName}_create",
+                function() use ($controller) {
+                    self::dispatch('create', $controller);
+                }
+            );
+
+            // Edit item
+            add_submenu_page(
+                null,
+                "Edit " . ucfirst($entitieName),
+                "Edit",
+                'manage_options',
+                "{$entitieName}_edit",
+                function() use ($controller) {
+                    self::dispatch('edit', $controller);
+                }
+            );
+
+            // Delete item
+            add_submenu_page(
+                null,
+                "Delete " . ucfirst($entitieName),
+                "Delete",
+                'manage_options',
+                "{$entitieName}_delete",
+                function() use ($controller) {
+                    self::dispatch('delete', $controller);
+                }
+            );
+        });
+    }
+
+    /**
+     *  Register the custom post type without showing in the default menu
+     * 
+     * @param string $postTypeName
+     */
+    public static function registerCustomPostType(string $postTypeName): void {
         add_action('init', function() use ($postTypeName) {
             $labels = [
                 'name' => ucfirst($postTypeName) . 's',
@@ -45,77 +118,23 @@ class Router
 
             register_post_type($postTypeName, $postTypeArgs);
         });
-
-        // TODO Register custom admin menu items
-        add_action('admin_menu', function() use ($postTypeName, $controller) {
-            // TODO List page for the custom post type
-            add_menu_page(
-                ucfirst($postTypeName) . 's',
-                ucfirst($postTypeName) . 's',
-                'manage_options',
-                "{$postTypeName}_list",
-                function() use ($controller) {
-                    self::dispatch('index', $controller);
-                },
-                'dashicons-admin-post', // TODO Custom icon for the menu
-                20
-            );
-
-            // Add new item
-            add_submenu_page(
-                "{$postTypeName}_list",
-                "Add New " . ucfirst($postTypeName),
-                "Add New",
-                'manage_options',
-                "{$postTypeName}_create",
-                function() use ($controller) {
-                    self::dispatch('create', $controller);
-                }
-            );
-
-            // Edit item
-            add_submenu_page(
-                null,
-                "Edit " . ucfirst($postTypeName),
-                "Edit",
-                'manage_options',
-                "{$postTypeName}_edit",
-                function() use ($controller) {
-                    self::dispatch('edit', $controller);
-                }
-            );
-
-            // Delete item
-            add_submenu_page(
-                null,
-                "Delete " . ucfirst($postTypeName),
-                "Delete",
-                'manage_options',
-                "{$postTypeName}_delete",
-                function() use ($controller) {
-                    self::dispatch('delete', $controller);
-                }
-            );
-        });
-
-        // Handle saving and deleting actions
-        add_action('admin_post_save_' . $postTypeName, function() use ($controller) {
-            $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
-
-            if ($post_id) {
-                // If post ID exists, we're updating an existing post
-                self::dispatch('update', $controller);
-            } else {
-                // Otherwise, we're creating a new post
-                self::dispatch('store', $controller);
-            }
-        });
-
-        add_action('admin_post_delete_' . $postTypeName, function() use ($controller) {
-            self::dispatch('delete', $controller);
-        });
     }
 
+    public static function registerHookAdminForActions(string $entitieName, string $controller)
+    {
+        // Handle saving and deleting actions
+        add_action('admin_post_save_' . $entitieName, function() use ($controller) {          
+            self::dispatch('store', $controller);
+        });
+
+        add_action('admin_post_delete_' . $entitieName, function() use ($controller) {
+            self::dispatch('delete', $controller);
+        });
+
+        add_action('admin_post_update_' . $entitieName, function() use ($controller) {
+            self::dispatch('update',$controller); 
+        });
+    }   
     /**
      * Dispatch action to the appropriate controller method.
      *
