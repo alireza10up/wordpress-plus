@@ -1,3 +1,5 @@
+## [1.1.2]
+- fix composer.json
 ## [1.1.1]
 - fix bug and clean routing
 ## [1.1.0]
