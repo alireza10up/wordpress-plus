@@ -2,6 +2,7 @@
     "name": "alireza10up/wodpress-plus",
     "description": "A lightweight, Laravel-inspired framework for WordPress plugin development, offering an MVC structure, Eloquent ORM integration, and seamless Composer support. Designed to streamline plugin creation while maintaining compatibility with WordPress core.",
     "type": "library",
+    "version": "1.0.3",
     "require": {
         "dbout/wp-orm": "^3.3"
     },
