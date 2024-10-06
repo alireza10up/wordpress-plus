@@ -41,6 +41,15 @@ abstract class BaseController
 
         $path = str_replace('.', '/', $name);
 
-        include_once __DIR__ . DIRECTORY_SEPARATOR . '/../' . DIRECTORY_SEPARATOR . $path . '.php';
+        $currentDir = dirname((new \ReflectionClass($this))->getFileName());
+
+        $viewPath = $currentDir . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . $path . '.php';
+
+        if (file_exists($viewPath)) {
+            include_once $viewPath;
+        } 
+        else {
+            die('View file not found: ' . $viewPath);
+        }
     }
 }
