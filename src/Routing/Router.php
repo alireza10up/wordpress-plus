@@ -9,6 +9,18 @@ class Router
     protected static array $routes = [];
 
     /**
+     * Initialize the Router by setting up necessary hooks.
+     *
+     * @return void
+     */
+    public static function init(): void
+    {
+        add_filter('query_vars', [self::class, 'addQueryVars']);
+        add_action('template_redirect', [self::class, 'handleTemplateRedirect']);
+        add_action('init', [self::class, 'registerRewriteRules']);
+    }
+
+    /**
      * Handle post type and associate it with a controller.
      *
      * @param string $postTypeName
@@ -28,7 +40,7 @@ class Router
     }
 
     /**
-     * Add crud for resource in admin wordpress
+     * Add CRUD for resource in admin WordPress.
      *
      * @param string $resourceName
      * @param string $controller
@@ -43,21 +55,117 @@ class Router
         self::registerHookAdminForActions($resourceName, $controller);
     }
 
-    public static function get(string $route, string $controller, string $method)
+    /**
+     * Register a route with a specific HTTP method.
+     *
+     * @param string $method HTTP method (e.g., 'get', 'post').
+     * @param string $route Route pattern (e.g., 'product/{id}').
+     * @param string $controller Controller class to handle the request.
+     * @param string $action Method in the controller to be executed.
+     * @return void
+     */
+    public static function addRoute(string $method, string $route, string $controller, string $action): void
     {
-        self::$routes['get'][$route] = [$controller, $method];
-
-        self::registerRewriteRule($route);
+        self::$routes[strtolower($method)][$route] = [$controller, $action];
     }
 
     /**
-     * Register custom menu
-     *  
+     * Magic method to handle dynamic calls for HTTP verbs (e.g., get, post).
+     *
+     * @param string $name Method name.
+     * @param array $arguments Method arguments.
+     * @return void
+     */
+    public static function __callStatic(string $name, array $arguments): void
+    {
+        $allowedMethods = ['get', 'post', 'put', 'delete', 'patch'];
+        if (in_array(strtolower($name), $allowedMethods)) {
+            list($route, $controller, $action) = $arguments;
+            self::addRoute($name, $route, $controller, $action);
+        } else {
+            throw new \BadMethodCallException("Method $name is not supported.");
+        }
+    }
+
+    /**
+     * Add a custom query variable to WordPress.
+     *
+     * @param array $vars Existing query vars.
+     * @return array Updated query vars.
+     */
+    public static function addQueryVars(array $vars): array
+    {
+        $vars[] = 'wordpress_plus_route';
+        return $vars;
+    }
+
+    /**
+     * Handle template redirect and dispatch to the appropriate controller.
+     *
+     * @return void
+     */
+    public static function handleTemplateRedirect(): void
+    {
+        global $wp;
+        $current_route = add_query_arg([], $wp->request);
+
+        if (!empty($current_route)) {
+            foreach (['get', 'post'] as $method) {
+                if (isset(self::$routes[$method])) {
+                    foreach (self::$routes[$method] as $route => $handler) {
+                        $regex = '@^' . preg_replace('/\{[a-zA-Z0-9_]+\}/', '([^/]+)', $route) . '$@';
+                        if (preg_match($regex, $current_route, $matches)) {
+                            array_shift($matches);
+                            list($controller, $method) = $handler;
+
+                            $controllerInstance = new $controller();
+                            if (method_exists($controllerInstance, $method)) {
+                                call_user_func_array([$controllerInstance, $method], $matches);
+                            } else {
+                                throw new HandlerNotExistException('Method ' . $method . ' not found in controller ' . $controller);
+                            }
+                            exit;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Register rewrite rules for all routes.
+     *
+     * @return void
+     */
+    public static function registerRewriteRules(): void
+    {
+        foreach (self::$routes as $methodRoutes) {
+            foreach ($methodRoutes as $route => $handler) {
+                $regex = self::convertRouteToRegex($route);
+                $query = 'index.php?wordpress_plus_route=' . urlencode($route);
+                add_rewrite_rule($regex, $query, 'top');
+            }
+        }
+
+        // Generate hash of current routes
+        $currentRoutesHash = md5(json_encode(self::$routes));
+        $savedRoutesHash = get_option('wordpress_plus_routes_hash', '');
+
+        // Compare the hashes to determine if routes have changed
+        if ($currentRoutesHash !== $savedRoutesHash) {
+            flush_rewrite_rules(false);
+            update_option('wordpress_plus_routes_hash', $currentRoutesHash);
+        }
+    }
+
+    /**
+     * Register custom menu.
+     *
      * @param string $entitieName
      * @param string $controller
      * @return void
      */
-    public static function registerCustomMenu(string $entitieName, string $controller): void
+    private static function registerCustomMenu(string $entitieName, string $controller): void
     {
         add_action('admin_menu', function() use ($entitieName, $controller) {
             // List page for the custom post type
@@ -69,7 +177,7 @@ class Router
                 function() use ($controller) {
                     self::dispatch('index', $controller);
                 },
-                'dashicons-admin-post', // TODO Custom icon for the menu we have changable
+                'dashicons-admin-post',
                 20
             );
 
@@ -100,11 +208,12 @@ class Router
     }
 
     /**
-     * Register the custom post type without showing in the default menu
+     * Register the custom post type without showing in the default menu.
      *
      * @param string $postTypeName
      */
-    public static function registerCustomPostType(string $postTypeName): void {
+    private static function registerCustomPostType(string $postTypeName): void
+    {
         add_action('init', function() use ($postTypeName) {
             $labels = [
                 'name' => ucfirst($postTypeName) . 's',
@@ -132,15 +241,15 @@ class Router
     }
 
     /**
-     * Handle saving and deleting actions
+     * Handle saving and deleting actions.
      *
      * @param string $entitieName
      * @param string $controller
      * @return void
      */
-    public static function registerHookAdminForActions(string $entitieName, string $controller)
+    private static function registerHookAdminForActions(string $entitieName, string $controller): void
     {
-        add_action('admin_post_save_' . $entitieName, function() use ($controller) {          
+        add_action('admin_post_save_' . $entitieName, function() use ($controller) {
             self::dispatch('store', $controller);
         });
 
@@ -149,9 +258,9 @@ class Router
         });
 
         add_action('admin_post_update_' . $entitieName, function() use ($controller) {
-            self::dispatch('update',$controller);
+            self::dispatch('update', $controller);
         });
-    }  
+    }
 
     /**
      * Dispatch action to the appropriate controller method.
@@ -172,49 +281,10 @@ class Router
     }
 
     /**
-     * Register rewrite rules for custom routes.
+     * Convert a route pattern into a regex for WordPress rewrite rules.
      *
-     * @param string $route
-     * @return void
-     */
-    private static function registerRewriteRule(string $route): void
-    {
-        add_action('init', function() use ($route) {
-            $regex = self::convertRouteToRegex($route);
-            $query = 'index.php?wordpress_plus_route=' . urlencode($route);
-            add_rewrite_rule($regex, $query, 'top');
-        });
-
-        add_filter('query_vars', function($vars) {
-            $vars[] = 'wordpress_plus_route';
-            return $vars;
-        });
-
-        add_action('template_redirect', function() use ($route) {
-            $current_route = get_query_var('wordpress_plus_route');
-            if ($current_route && $current_route === urlencode($route)) {
-                list($controller, $method) = self::$routes['get'][$route];
-                self::dispatch($method, $controller);
-                exit;
-            }
-        });
-
-        // Generate hash of current routes
-        $currentRoutesHash = md5(json_encode(self::$routes));
-        $savedRoutesHash = get_option('wordpress_plus_routes_hash', '');
-
-        // Compare the hashes to determine if routes have changed
-        if ($currentRoutesHash !== $savedRoutesHash) {
-            flush_rewrite_rules(false);
-            update_option('wordpress_plus_routes_hash', $currentRoutesHash);
-        }
-    }
-
-    /**
-     * Convert route to regex pattern.
-     *
-     * @param string $route
-     * @return string
+     * @param string $route Route pattern with placeholders (e.g., 'product/{id}').
+     * @return string Regex pattern for WordPress rewrite.
      */
     private static function convertRouteToRegex(string $route): string
     {
