@@ -21,24 +21,6 @@ class Router
     }
 
     /**
-     * Magic method to handle dynamic calls for HTTP verbs (e.g., get, post).
-     *
-     * @param string $name Method name.
-     * @param array $arguments Method arguments.
-     * @return void
-     */
-    public static function __callStatic(string $name, array $arguments): void
-    {
-        $allowedMethods = ['get', 'post', 'put', 'delete', 'patch'];
-        if (in_array(strtolower($name), $allowedMethods)) {
-            list($route, $controller, $action) = $arguments;
-            self::addRoute($name, $route, $controller, $action);
-        } else {
-            throw new \BadMethodCallException("Method $name is not supported.");
-        }
-    }
-
-    /**
      * Handle post type and associate it with a controller.
      *
      * @param string $postTypeName
@@ -88,6 +70,24 @@ class Router
     }
 
     /**
+     * Magic method to handle dynamic calls for HTTP verbs (e.g., get, post).
+     *
+     * @param string $name Method name.
+     * @param array $arguments Method arguments.
+     * @return void
+     */
+    public static function __callStatic(string $name, array $arguments): void
+    {
+        $allowedMethods = ['get', 'post', 'put', 'delete', 'patch'];
+        if (in_array(strtolower($name), $allowedMethods)) {
+            list($route, $controller, $action) = $arguments;
+            self::addRoute($name, $route, $controller, $action);
+        } else {
+            throw new \BadMethodCallException("Method $name is not supported.");
+        }
+    }
+
+    /**
      * Add a custom query variable to WordPress.
      *
      * @param array $vars Existing query vars.
@@ -106,7 +106,9 @@ class Router
      */
     public static function handleTemplateRedirect(): void
     {
-        $current_route = get_query_var('wordpress_plus_route');
+        global $wp;
+        $current_route = add_query_arg([], $wp->request);
+
         if (!empty($current_route)) {
             foreach (['get', 'post'] as $method) {
                 if (isset(self::$routes[$method])) {
