@@ -7,8 +7,16 @@ use Illuminate\Translation\ArrayLoader;
 use Illuminate\Translation\Translator;
 
 class Validator {
+    /**
+     * Validation Errors
+     * @var array
+     */
     private $errors = [];
     
+    /**
+     * Validation Messages
+     * @var array
+     */
     private $messages = [
         'accepted' => 'فیلد :attribute باید پذیرفته شود.',
         'active_url' => 'فیلد :attribute یک آدرس معتبر نیست.',
@@ -97,6 +105,12 @@ class Validator {
         ],
     ];    
 
+    /**
+     * Validate Data
+     * @param mixed $data
+     * @param mixed $rules
+     * @return bool
+     */
     public function validate($data, $rules) {
         $translator = new Translator(new ArrayLoader(), 'fa');
         $factory = new Factory($translator);
@@ -111,6 +125,10 @@ class Validator {
         return true;
     }
 
+    /**
+     * Check Validation
+     * @return array|bool
+     */
     public function check() {
         return empty($this->errors) ? true : $this->errors;
     }
