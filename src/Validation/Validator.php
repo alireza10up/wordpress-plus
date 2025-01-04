@@ -9,12 +9,14 @@ use Illuminate\Translation\Translator;
 class Validator {
     /**
      * Validation Errors
+     * 
      * @var array
      */
     private $errors = [];
     
     /**
      * Validation Messages
+     * 
      * @var array
      */
     private $messages = [
@@ -107,6 +109,7 @@ class Validator {
 
     /**
      * Validate Data
+     * 
      * @param mixed $data
      * @param mixed $rules
      * @return bool
@@ -127,6 +130,7 @@ class Validator {
 
     /**
      * Check Validation
+     * 
      * @return array|bool
      */
     public function check() {
